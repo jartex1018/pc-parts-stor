@@ -59,7 +59,7 @@ export default function HomePage() {
             </div>
             <div className="relative hidden md:block">
               <div className="relative h-[500px] rounded-2xl overflow-hidden shadow-2xl shadow-blue-500/20">
-                <Image src="https://images.pexels.com/photos/18105/pexels-photo.jpg?auto=compress&cs=tinysrgb&w=800" alt="Gaming PC Build" fill className="object-cover" priority />
+                <Image src="https://images.pexels.com/photos/30469973/pexels-photo-30469973.jpeg?auto=compress&cs=tinysrgb&w=800" alt="Gaming PC Build" fill className="object-cover" priority />
                 <div className="absolute inset-0 bg-gradient-to-t from-slate-900/60 via-transparent to-transparent" />
               </div>
             </div>

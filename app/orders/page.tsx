@@ -5,119 +5,88 @@ import { useRouter } from 'next/navigation';
 import Link from 'next/link';
 import { createClient } from '@/lib/supabase';
 import { useAuth } from '@/lib/auth-context';
-import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
-import { Badge } from '@/components/ui/badge';
-import { Package } from 'lucide-react';
+import { Card, CardContent } from '@/components/ui/card';
+import { Button } from '@/components/ui/button';
+import { Package, ChevronRight } from 'lucide-react';
 
-interface Order {
-  id: string;
-  status: string;
-  total_amount: number;
-  created_at: string;
-}
+interface Order { id: string; status: string; total_amount: number; created_at: string; }
 
 export default function OrdersPage() {
   const { session, loading: authLoading } = useAuth();
   const router = useRouter();
   const supabase = createClient();
-
   const [orders, setOrders] = useState<Order[]>([]);
   const [loading, setLoading] = useState(true);
 
   useEffect(() => {
-    if (!authLoading && !session) {
-      router.push('/login');
-      return;
-    }
-
-    if (session) {
-      fetchOrders();
-    }
+    if (!authLoading && !session) { router.push('/login'); return; }
+    if (session) fetchOrders();
   }, [session, authLoading]);
 
   async function fetchOrders() {
-    const { data } = await supabase
-      .from('orders')
-      .select('*')
-      .eq('user_id', session!.user.id)
-      .order('created_at', { ascending: false });
-
-    if (data) {
-      setOrders(data);
-    }
+    const { data } = await supabase.from('orders').select('*').eq('user_id', session!.user.id).order('created_at', { ascending: false });
+    if (data) setOrders(data);
     setLoading(false);
   }
 
-  if (authLoading || loading) {
-    return <div className="min-h-screen bg-slate-50 py-12" />;
-  }
-
-  if (orders.length === 0) {
-    return (
-      <div className="min-h-screen bg-slate-50 py-12">
-        <div className="max-w-4xl mx-auto px-4 sm:px-6 lg:px-8 text-center">
-          <Package className="w-16 h-16 mx-auto text-slate-300 mb-4" />
-          <h1 className="text-2xl font-bold mb-2">No orders yet</h1>
-          <p className="text-slate-600 mb-6">Start shopping to place your first order</p>
-          <Link href="/products" className="text-blue-600 hover:underline">
-            Browse Products
-          </Link>
-        </div>
-      </div>
-    );
-  }
-
-  const getStatusColor = (status: string) => {
+  const getStatusConfig = (status: string) => {
     switch (status) {
-      case 'confirmed':
-        return 'bg-blue-100 text-blue-800';
-      case 'shipped':
-        return 'bg-purple-100 text-purple-800';
-      case 'delivered':
-        return 'bg-green-100 text-green-800';
-      case 'cancelled':
-        return 'bg-red-100 text-red-800';
-      default:
-        return 'bg-slate-100 text-slate-800';
+      case 'confirmed': return { label: 'Confirmed', bg: 'bg-blue-50', text: 'text-blue-700', dot: 'bg-blue-500' };
+      case 'shipped': return { label: 'Shipped', bg: 'bg-amber-50', text: 'text-amber-700', dot: 'bg-amber-500' };
+      case 'delivered': return { label: 'Delivered', bg: 'bg-emerald-50', text: 'text-emerald-700', dot: 'bg-emerald-500' };
+      case 'cancelled': return { label: 'Cancelled', bg: 'bg-red-50', text: 'text-red-700', dot: 'bg-red-500' };
+      default: return { label: 'Pending', bg: 'bg-slate-50', text: 'text-slate-700', dot: 'bg-slate-500' };
     }
   };
 
+  if (authLoading || loading) return <div className="min-h-screen bg-slate-50 py-12" />;
+
+  if (orders.length === 0) return (
+    <div className="min-h-screen bg-slate-50 py-20">
+      <div className="max-w-4xl mx-auto px-4 sm:px-6 lg:px-8 text-center">
+        <div className="w-20 h-20 bg-slate-100 rounded-full flex items-center justify-center mx-auto mb-6"><Package className="w-10 h-10 text-slate-400" /></div>
+        <h1 className="text-2xl font-bold text-slate-900 mb-2">No orders yet</h1>
+        <p className="text-slate-500 mb-8">Start shopping to place your first order</p>
+        <Link href="/products"><Button size="lg" className="h-12 px-8">Browse Products</Button></Link>
+      </div>
+    </div>
+  );
+
   return (
-    <div className="min-h-screen bg-slate-50 py-12">
-      <div className="max-w-4xl mx-auto px-4 sm:px-6 lg:px-8">
-        <h1 className="text-3xl font-bold mb-8">My Orders</h1>
-
-        <div className="space-y-4">
-          {orders.map((order) => (
+    <div className="min-h-screen bg-slate-50">
+      <div className="bg-white border-b border-slate-200">
+        <div className="max-w-4xl mx-auto px-4 sm:px-6 lg:px-8 py-8">
+          <h1 className="text-3xl md:text-4xl font-bold text-slate-900 tracking-tight">My Orders</h1>
+          <p className="text-slate-500 mt-2">{orders.length} order{orders.length !== 1 ? 's' : ''}</p>
+        </div>
+      </div>
+      <div className="max-w-4xl mx-auto px-4 sm:px-6 lg:px-8 py-8 space-y-4">
+        {orders.map((order) => {
+          const sc = getStatusConfig(order.status);
+          return (
             <Link key={order.id} href={`/orders/${order.id}`}>
-              <Card className="hover:shadow-lg transition-shadow cursor-pointer">
+              <Card className="hover:shadow-lg transition-all duration-200 cursor-pointer border-slate-200 shadow-sm hover:border-blue-200 group">
                 <CardContent className="p-6">
-                  <div className="flex justify-between items-start">
-                    <div>
-                      <p className="text-sm text-slate-600 mb-1">Order ID</p>
-                      <p className="font-mono text-sm text-slate-900 mb-4">
-                        {order.id.substring(0, 8).toUpperCase()}...
-                      </p>
-                      <p className="text-sm text-slate-600">
-                        {new Date(order.created_at).toLocaleDateString()}
-                      </p>
+                  <div className="flex items-center justify-between gap-4">
+                    <div className="min-w-0">
+                      <div className="flex items-center gap-3 mb-2">
+                        <p className="font-mono text-sm text-slate-500">#{order.id.substring(0, 8).toUpperCase()}</p>
+                        <div className={`inline-flex items-center gap-1.5 px-2.5 py-1 rounded-full text-xs font-semibold ${sc.bg} ${sc.text}`}>
+                          <div className={`w-1.5 h-1.5 rounded-full ${sc.dot}`} />{sc.label}
+                        </div>
+                      </div>
+                      <p className="text-sm text-slate-500">{new Date(order.created_at).toLocaleDateString('en-US', { year: 'numeric', month: 'long', day: 'numeric' })}</p>
                     </div>
-
-                    <div className="text-right">
-                      <p className="text-sm text-slate-600 mb-2">Total</p>
-                      <p className="text-2xl font-bold text-slate-900 mb-3">
-                        ${order.total_amount.toFixed(2)}
-                      </p>
-                      <Badge className={getStatusColor(order.status)}>
-                        {order.status.charAt(0).toUpperCase() + order.status.slice(1)}
-                      </Badge>
+                    <div className="flex items-center gap-4 flex-shrink-0">
+                      <span className="text-xl font-bold text-slate-900">${order.total_amount.toFixed(2)}</span>
+                      <ChevronRight className="w-5 h-5 text-slate-400 group-hover:text-blue-600 transition-colors" />
                     </div>
                   </div>
                 </CardContent>
               </Card>
             </Link>
-          ))}
-        </div>
+          );
+        })}
       </div>
     </div>
   );

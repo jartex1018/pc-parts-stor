@@ -9,7 +9,7 @@ import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { toast } from 'sonner';
-import { ArrowLeft, Lock } from 'lucide-react';
+import { ArrowLeft, Lock, Check } from 'lucide-react';
 
 interface CartItem { id: string; product_id: string; quantity: number; products: { id: string; name: string; price: number; image_url: string; }; }
 
@@ -61,8 +61,10 @@ export default function CheckoutPage() {
     finally { setProcessing(false); }
   }
 
-  if (authLoading || loading) return <div className="min-h-screen bg-slate-50 py-12" />;
-  if (items.length === 0) return (<div className="min-h-screen bg-slate-50 py-20"><div className="max-w-2xl mx-auto px-4 sm:px-6 lg:px-8 text-center"><h1 className="text-2xl font-bold mb-4">Your cart is empty</h1><Link href="/products"><Button>Continue Shopping</Button></Link></div></div>);
+  if (authLoading || loading) return <div className="min-h-screen bg-slate-50/50" />;
+  if (items.length === 0) return (
+    <div className="min-h-screen bg-slate-50/50 py-20"><div className="max-w-2xl mx-auto px-4 sm:px-6 lg:px-8 text-center"><h1 className="text-2xl font-bold mb-4">Your cart is empty</h1><Link href="/products"><Button>Continue Shopping</Button></Link></div></div>
+  );
 
   const subtotal = items.reduce((sum, item) => sum + item.products.price * item.quantity, 0);
   const tax = subtotal * 0.08;
@@ -70,61 +72,69 @@ export default function CheckoutPage() {
   const total = subtotal + tax + shipping;
 
   return (
-    <div className="min-h-screen bg-slate-50">
-      <div className="bg-white border-b border-slate-200">
+    <div className="min-h-screen bg-slate-50/50">
+      <div className="bg-white border-b border-slate-200/60">
         <div className="max-w-5xl mx-auto px-4 sm:px-6 lg:px-8 py-8">
-          <h1 className="text-3xl md:text-4xl font-bold text-slate-900 tracking-tight">Checkout</h1>
-          <p className="text-slate-500 mt-2">Complete your order</p>
+          <h1 className="text-2xl md:text-3xl font-bold text-slate-900 tracking-tight">Checkout</h1>
+          {/* Progress Steps */}
+          <div className="flex items-center gap-2 mt-4 text-xs">
+            <div className="flex items-center gap-1.5 text-blue-600 font-medium"><div className="w-5 h-5 bg-blue-600 text-white rounded-full flex items-center justify-center text-[10px]">1</div>Shipping</div>
+            <div className="w-8 h-px bg-slate-200" />
+            <div className="flex items-center gap-1.5 text-slate-400"><div className="w-5 h-5 bg-slate-200 text-slate-500 rounded-full flex items-center justify-center text-[10px]">2</div>Review</div>
+            <div className="w-8 h-px bg-slate-200" />
+            <div className="flex items-center gap-1.5 text-slate-400"><div className="w-5 h-5 bg-slate-200 text-slate-500 rounded-full flex items-center justify-center text-[10px]">3</div>Confirm</div>
+          </div>
         </div>
       </div>
+
       <div className="max-w-5xl mx-auto px-4 sm:px-6 lg:px-8 py-8">
-        <Link href="/cart" className="inline-flex items-center gap-2 text-blue-600 hover:text-blue-700 font-medium text-sm mb-6"><ArrowLeft className="w-4 h-4" />Back to Cart</Link>
+        <Link href="/cart" className="inline-flex items-center gap-1.5 text-blue-600 hover:text-blue-700 font-medium text-sm mb-6"><ArrowLeft className="w-3.5 h-3.5" />Back to Cart</Link>
         <form onSubmit={handleCheckout}>
           <div className="grid md:grid-cols-5 gap-8">
             <div className="md:col-span-3 space-y-6">
-              <Card className="border-slate-200 shadow-sm">
-                <CardHeader><CardTitle className="text-lg flex items-center gap-2"><span className="w-7 h-7 bg-blue-600 text-white rounded-full flex items-center justify-center text-sm font-bold">1</span>Shipping Address</CardTitle></CardHeader>
+              <Card className="border-slate-200/80 shadow-sm">
+                <CardHeader className="pb-4"><CardTitle className="text-base">Shipping Address</CardTitle></CardHeader>
                 <CardContent className="space-y-4">
                   <div className="grid sm:grid-cols-2 gap-4">
-                    <div><label className="block text-sm font-medium text-slate-700 mb-1.5">Full Name *</label><Input value={fullName} onChange={(e) => setFullName(e.target.value)} required disabled={processing} className="h-10" /></div>
-                    <div><label className="block text-sm font-medium text-slate-700 mb-1.5">Email *</label><Input type="email" value={email} onChange={(e) => setEmail(e.target.value)} required disabled={processing} className="h-10" /></div>
+                    <div><label className="block text-xs font-medium text-slate-700 mb-1.5">Full Name *</label><Input value={fullName} onChange={(e) => setFullName(e.target.value)} required disabled={processing} className="h-10" /></div>
+                    <div><label className="block text-xs font-medium text-slate-700 mb-1.5">Email *</label><Input type="email" value={email} onChange={(e) => setEmail(e.target.value)} required disabled={processing} className="h-10" /></div>
                   </div>
-                  <div><label className="block text-sm font-medium text-slate-700 mb-1.5">Phone</label><Input value={phone} onChange={(e) => setPhone(e.target.value)} disabled={processing} className="h-10" /></div>
-                  <div><label className="block text-sm font-medium text-slate-700 mb-1.5">Street Address *</label><Input value={address} onChange={(e) => setAddress(e.target.value)} required disabled={processing} className="h-10" /></div>
+                  <div><label className="block text-xs font-medium text-slate-700 mb-1.5">Phone</label><Input value={phone} onChange={(e) => setPhone(e.target.value)} disabled={processing} className="h-10" /></div>
+                  <div><label className="block text-xs font-medium text-slate-700 mb-1.5">Street Address *</label><Input value={address} onChange={(e) => setAddress(e.target.value)} required disabled={processing} className="h-10" /></div>
                   <div className="grid grid-cols-3 gap-4">
-                    <div><label className="block text-sm font-medium text-slate-700 mb-1.5">City *</label><Input value={city} onChange={(e) => setCity(e.target.value)} required disabled={processing} className="h-10" /></div>
-                    <div><label className="block text-sm font-medium text-slate-700 mb-1.5">State *</label><Input value={state} onChange={(e) => setState(e.target.value)} required disabled={processing} className="h-10" /></div>
-                    <div><label className="block text-sm font-medium text-slate-700 mb-1.5">Zip *</label><Input value={zipCode} onChange={(e) => setZipCode(e.target.value)} required disabled={processing} className="h-10" /></div>
+                    <div><label className="block text-xs font-medium text-slate-700 mb-1.5">City *</label><Input value={city} onChange={(e) => setCity(e.target.value)} required disabled={processing} className="h-10" /></div>
+                    <div><label className="block text-xs font-medium text-slate-700 mb-1.5">State *</label><Input value={state} onChange={(e) => setState(e.target.value)} required disabled={processing} className="h-10" /></div>
+                    <div><label className="block text-xs font-medium text-slate-700 mb-1.5">Zip *</label><Input value={zipCode} onChange={(e) => setZipCode(e.target.value)} required disabled={processing} className="h-10" /></div>
                   </div>
                 </CardContent>
               </Card>
-              <Card className="border-slate-200 shadow-sm">
-                <CardHeader><CardTitle className="text-lg flex items-center gap-2"><span className="w-7 h-7 bg-blue-600 text-white rounded-full flex items-center justify-center text-sm font-bold">2</span>Review Items</CardTitle></CardHeader>
-                <CardContent className="space-y-3">
+              <Card className="border-slate-200/80 shadow-sm">
+                <CardHeader className="pb-4"><CardTitle className="text-base">Order Items</CardTitle></CardHeader>
+                <CardContent className="space-y-0">
                   {items.map((item) => (
-                    <div key={item.id} className="flex justify-between py-2 border-b border-slate-100 last:border-0">
-                      <div><p className="font-medium text-slate-900 text-sm">{item.products.name}</p><p className="text-xs text-slate-500">Qty: {item.quantity}</p></div>
-                      <span className="font-semibold text-sm">${(item.products.price * item.quantity).toFixed(2)}</span>
+                    <div key={item.id} className="flex justify-between py-2.5 border-b border-slate-100 last:border-0 text-sm">
+                      <div><span className="font-medium text-slate-900">{item.products.name}</span><span className="text-slate-500 ml-2">x{item.quantity}</span></div>
+                      <span className="font-medium">${(item.products.price * item.quantity).toFixed(2)}</span>
                     </div>
                   ))}
                 </CardContent>
               </Card>
             </div>
             <div className="md:col-span-2">
-              <Card className="border-slate-200 shadow-sm sticky top-20">
-                <CardHeader className="pb-4"><CardTitle className="text-lg">Order Summary</CardTitle></CardHeader>
+              <Card className="border-slate-200/80 shadow-sm sticky top-20">
+                <CardHeader className="pb-3"><CardTitle className="text-base">Order Summary</CardTitle></CardHeader>
                 <CardContent className="space-y-4">
-                  <div className="space-y-3">
-                    <div className="flex justify-between text-sm text-slate-600"><span>Subtotal ({items.length} items)</span><span className="font-medium">${subtotal.toFixed(2)}</span></div>
-                    <div className="flex justify-between text-sm text-slate-600"><span>Tax (8%)</span><span className="font-medium">${tax.toFixed(2)}</span></div>
-                    <div className="flex justify-between text-sm text-slate-600"><span>Shipping</span><span className="font-medium">{shipping === 0 ? <span className="text-emerald-600">Free</span> : `$${shipping.toFixed(2)}`}</span></div>
+                  <div className="space-y-2.5">
+                    <div className="flex justify-between text-sm"><span className="text-slate-500">Subtotal ({items.length} items)</span><span className="font-medium">${subtotal.toFixed(2)}</span></div>
+                    <div className="flex justify-between text-sm"><span className="text-slate-500">Tax (8%)</span><span className="font-medium">${tax.toFixed(2)}</span></div>
+                    <div className="flex justify-between text-sm"><span className="text-slate-500">Shipping</span><span className="font-medium">{shipping === 0 ? <span className="text-emerald-600">Free</span> : `$${shipping.toFixed(2)}`}</span></div>
                   </div>
-                  <div className="pt-4 border-t border-slate-200">
-                    <div className="flex justify-between items-center mb-6"><span className="font-semibold text-slate-900">Total</span><span className="text-2xl font-bold text-slate-900">${total.toFixed(2)}</span></div>
-                    <Button type="submit" className="w-full h-12 text-base font-semibold" disabled={processing}>
+                  <div className="pt-4 border-t border-slate-100">
+                    <div className="flex justify-between items-center mb-5"><span className="font-semibold text-slate-900">Total</span><span className="text-xl font-bold text-slate-900">${total.toFixed(2)}</span></div>
+                    <Button type="submit" className="w-full h-11 text-[15px] font-semibold bg-blue-600 hover:bg-blue-500 shadow-sm shadow-blue-600/20" disabled={processing}>
                       {processing ? 'Processing...' : <><Lock className="w-4 h-4 mr-2" />Place Order</>}
                     </Button>
-                    <p className="text-xs text-slate-400 text-center mt-3">Your payment information is secure and encrypted</p>
+                    <p className="text-[10px] text-slate-400 text-center mt-3">Your payment information is secure and encrypted</p>
                   </div>
                 </CardContent>
               </Card>

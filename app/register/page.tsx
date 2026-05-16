@@ -35,37 +35,41 @@ export default function RegisterPage() {
 
   return (
     <div className="min-h-screen flex">
-      <div className="hidden lg:flex flex-1 items-center justify-center bg-gradient-to-br from-slate-800 to-slate-900 p-12">
-        <div className="max-w-md space-y-8">
-          <div className="w-20 h-20 bg-blue-600/20 rounded-2xl flex items-center justify-center mx-auto"><ShoppingCart className="w-10 h-10 text-blue-400" /></div>
-          <h2 className="text-3xl font-bold text-white leading-tight text-center">Join PC Parts Store</h2>
-          <div className="space-y-4">
+      <div className="hidden lg:flex flex-1 items-center justify-center bg-slate-900 p-12 relative overflow-hidden">
+        <div className="absolute inset-0 bg-gradient-to-br from-blue-600/20 to-cyan-600/10" />
+        <div className="absolute inset-0 bg-[radial-gradient(circle_at_70%_50%,rgba(59,130,246,0.15),transparent_50%)]" />
+        <div className="relative max-w-sm space-y-8">
+          <div className="w-16 h-16 bg-white/10 rounded-2xl flex items-center justify-center mx-auto backdrop-blur-sm border border-white/10"><ShoppingCart className="w-8 h-8 text-blue-400" /></div>
+          <h2 className="text-2xl font-bold text-white leading-tight text-center">Join PC Parts Store</h2>
+          <div className="space-y-3">
             {benefits.map((benefit) => (
-              <div key={benefit} className="flex items-center gap-3 text-slate-300">
-                <div className="w-5 h-5 bg-emerald-500/20 rounded-full flex items-center justify-center flex-shrink-0"><Check className="w-3 h-3 text-emerald-400" /></div>
-                <span className="text-sm">{benefit}</span>
+              <div key={benefit} className="flex items-center gap-3 text-slate-400 text-sm">
+                <div className="w-5 h-5 bg-emerald-500/10 rounded-full flex items-center justify-center flex-shrink-0"><Check className="w-3 h-3 text-emerald-400" /></div>
+                {benefit}
               </div>
             ))}
           </div>
         </div>
       </div>
       <div className="flex-1 flex items-center justify-center px-4 sm:px-6 lg:px-8 py-12">
-        <div className="w-full max-w-md">
+        <div className="w-full max-w-sm animate-fade-in">
           <div className="mb-8">
-            <Link href="/" className="flex items-center gap-2.5 mb-8">
-              <div className="w-8 h-8 bg-blue-600 rounded-lg flex items-center justify-center"><ShoppingCart className="w-4 h-4 text-white" /></div>
+            <Link href="/" className="flex items-center gap-2 mb-8">
+              <div className="w-8 h-8 bg-blue-600 rounded-lg flex items-center justify-center shadow-sm shadow-blue-600/20"><ShoppingCart className="w-4 h-4 text-white" /></div>
               <span className="font-bold text-lg text-slate-900">PC Parts</span>
             </Link>
-            <h1 className="text-3xl font-bold text-slate-900 tracking-tight">Create your account</h1>
-            <p className="text-slate-500 mt-2">Start shopping premium PC components</p>
+            <h1 className="text-2xl font-bold text-slate-900 tracking-tight">Create your account</h1>
+            <p className="text-slate-500 text-sm mt-1">Start shopping premium PC components</p>
           </div>
-          <form onSubmit={handleRegister} className="space-y-5">
-            <div><label className="block text-sm font-medium text-slate-700 mb-1.5">Email</label><Input type="email" placeholder="you@example.com" value={email} onChange={(e) => setEmail(e.target.value)} required disabled={loading} className="h-11" /></div>
-            <div><label className="block text-sm font-medium text-slate-700 mb-1.5">Password</label><Input type="password" placeholder="At least 6 characters" value={password} onChange={(e) => setPassword(e.target.value)} required disabled={loading} className="h-11" /></div>
-            <div><label className="block text-sm font-medium text-slate-700 mb-1.5">Confirm Password</label><Input type="password" placeholder="Repeat your password" value={confirmPassword} onChange={(e) => setConfirmPassword(e.target.value)} required disabled={loading} className="h-11" /></div>
-            <Button type="submit" className="w-full h-11 text-base font-semibold" disabled={loading}>{loading ? 'Creating account...' : 'Create Account'}{!loading && <ArrowRight className="w-4 h-4 ml-2" />}</Button>
+          <form onSubmit={handleRegister} className="space-y-4">
+            <div><label className="block text-xs font-medium text-slate-700 mb-1.5">Email</label><Input type="email" placeholder="you@example.com" value={email} onChange={(e) => setEmail(e.target.value)} required disabled={loading} className="h-10" /></div>
+            <div><label className="block text-xs font-medium text-slate-700 mb-1.5">Password</label><Input type="password" placeholder="At least 6 characters" value={password} onChange={(e) => setPassword(e.target.value)} required disabled={loading} className="h-10" /></div>
+            <div><label className="block text-xs font-medium text-slate-700 mb-1.5">Confirm Password</label><Input type="password" placeholder="Repeat your password" value={confirmPassword} onChange={(e) => setConfirmPassword(e.target.value)} required disabled={loading} className="h-10" /></div>
+            <Button type="submit" className="w-full h-10 text-sm font-semibold bg-blue-600 hover:bg-blue-500 shadow-sm shadow-blue-600/20" disabled={loading}>
+              {loading ? 'Creating account...' : 'Create Account'}{!loading && <ArrowRight className="w-4 h-4 ml-1.5" />}
+            </Button>
           </form>
-          <div className="mt-8 text-center"><p className="text-sm text-slate-500">Already have an account? <Link href="/login" className="text-blue-600 hover:text-blue-700 font-semibold">Sign in</Link></p></div>
+          <div className="mt-6 text-center"><p className="text-sm text-slate-500">Already have an account? <Link href="/login" className="text-blue-600 hover:text-blue-700 font-semibold">Sign in</Link></p></div>
         </div>
       </div>
     </div>

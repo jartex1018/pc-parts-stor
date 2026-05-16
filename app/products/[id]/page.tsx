@@ -8,7 +8,7 @@ import { useAuth } from '@/lib/auth-context';
 import { Button } from '@/components/ui/button';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Input } from '@/components/ui/input';
-import { ArrowLeft, Check, Minus, Plus, ShoppingCart, Truck, Shield, RotateCcw, Heart, Share2 } from 'lucide-react';
+import { ArrowLeft, Check, Minus, Plus, ShoppingCart, Truck, Shield, RotateCcw, Heart } from 'lucide-react';
 import Link from 'next/link';
 import { toast } from 'sonner';
 
@@ -31,35 +31,73 @@ export default function ProductDetailPage() {
 
   useEffect(() => {
     async function fetchProduct() {
-      const { data } = await supabase.from('products').select('*').eq('id', params.id).single();
-      if (data) {
-        setProduct(data);
-        const { data: catData } = await supabase.from('categories').select('*').eq('id', data.category_id).single();
-        if (catData) setCategory(catData);
-        const { data: relData } = await supabase.from('products').select('id, name, price, image_url, brand').eq('category_id', data.category_id).neq('id', data.id).limit(4);
-        if (relData) setRelated(relData);
-      }
+      const { data, error } = await supabase.from('products').select('*').eq('id', params.id).single();
+      if (error || !data) { setLoading(false); return; }
+      setProduct(data);
+      const { data: catData } = await supabase.from('categories').select('*').eq('id', data.category_id).single();
+      if (catData) setCategory(catData);
+      const { data: relData } = await supabase.from('products').select('id, name, price, image_url, brand').eq('category_id', data.category_id).neq('id', data.id).limit(4);
+      if (relData) setRelated(relData);
       setLoading(false);
     }
     if (params.id) fetchProduct();
   }, [params.id]);
 
   async function handleAddToCart() {
-    if (!session) { toast.error('Please log in to add items to cart'); router.push('/login'); return; }
+    if (!session) {
+      toast.error('Please sign in to add items to cart');
+      router.push('/login');
+      return;
+    }
     if (!product) return;
     setAdding(true);
     try {
-      const { data: existing } = await supabase.from('cart_items').select('id, quantity').eq('user_id', session.user.id).eq('product_id', product.id).maybeSingle();
-      if (existing) {
-        const { error } = await supabase.from('cart_items').update({ quantity: existing.quantity + quantity }).eq('id', existing.id);
-        if (error) { toast.error('Failed to update cart'); return; }
-      } else {
-        const { error } = await supabase.from('cart_items').insert({ user_id: session.user.id, product_id: product.id, quantity });
-        if (error) { toast.error('Failed to add to cart'); return; }
+      // Check if item already exists in cart
+      const { data: existing, error: fetchError } = await supabase
+        .from('cart_items')
+        .select('id, quantity')
+        .eq('user_id', session.user.id)
+        .eq('product_id', product.id)
+        .maybeSingle();
+
+      if (fetchError) {
+        toast.error('Failed to check cart');
+        setAdding(false);
+        return;
       }
-      toast.success(`${quantity} item${quantity > 1 ? 's' : ''} added to cart`);
-    } catch (err) { toast.error('An error occurred'); }
-    finally { setAdding(false); }
+
+      if (existing) {
+        // Update existing cart item quantity
+        const newQty = existing.quantity + quantity;
+        const { error: updateError } = await supabase
+          .from('cart_items')
+          .update({ quantity: newQty })
+          .eq('id', existing.id);
+
+        if (updateError) {
+          toast.error('Failed to update cart');
+          setAdding(false);
+          return;
+        }
+      } else {
+        // Insert new cart item
+        const { error: insertError } = await supabase
+          .from('cart_items')
+          .insert({ user_id: session.user.id, product_id: product.id, quantity });
+
+        if (insertError) {
+          toast.error('Failed to add to cart');
+          setAdding(false);
+          return;
+        }
+      }
+
+      toast.success(`${product.name} added to cart`);
+    } catch (err) {
+      toast.error('Something went wrong');
+    } finally {
+      setAdding(false);
+    }
   }
 
   if (loading) return (
@@ -74,12 +112,16 @@ export default function ProductDetailPage() {
   );
 
   if (!product) return (
-    <div className="min-h-screen bg-slate-50/40 py-20"><div className="max-w-4xl mx-auto px-4 sm:px-6 lg:px-8 text-center"><h1 className="text-xl font-bold mb-4">Product not found</h1><Link href="/products"><Button className="bg-blue-600 hover:bg-blue-500">Browse Products</Button></Link></div></div>
+    <div className="min-h-screen bg-slate-50/40 py-20">
+      <div className="max-w-4xl mx-auto px-4 sm:px-6 lg:px-8 text-center">
+        <h1 className="text-xl font-bold mb-4">Product not found</h1>
+        <Link href="/products"><Button className="bg-blue-600 hover:bg-blue-500">Browse Products</Button></Link>
+      </div>
+    </div>
   );
 
   return (
     <div className="min-h-screen bg-slate-50/40">
-      {/* Breadcrumb */}
       <div className="bg-white border-b border-slate-200/60">
         <div className="max-w-6xl mx-auto px-4 sm:px-6 lg:px-8 py-2.5">
           <nav className="flex items-center gap-1.5 text-[11px]">
@@ -93,14 +135,12 @@ export default function ProductDetailPage() {
 
       <div className="max-w-6xl mx-auto px-4 sm:px-6 lg:px-8 py-8">
         <div className="grid md:grid-cols-2 gap-8 lg:gap-14 animate-fade-in">
-          {/* Image */}
           <div className="bg-white rounded-2xl overflow-hidden border border-slate-200/70 shadow-sm">
             <div className="relative h-72 md:h-[440px] bg-slate-50">
               <Image src={product.image_url} alt={product.name} fill className="object-cover" priority sizes="(max-width: 768px) 100vw, 50vw" />
             </div>
           </div>
 
-          {/* Details */}
           <div className="space-y-5">
             <div>
               <p className="text-[10px] font-semibold text-blue-600 uppercase tracking-wider mb-1.5">{product.brand}</p>
@@ -108,7 +148,6 @@ export default function ProductDetailPage() {
             </div>
             <p className="text-slate-600 text-[13px] leading-relaxed">{product.description}</p>
 
-            {/* Price + Stock */}
             <div className="bg-white rounded-xl p-4 border border-slate-200/70 shadow-sm space-y-4">
               <div className="flex items-end justify-between">
                 <div>
@@ -143,7 +182,6 @@ export default function ProductDetailPage() {
               )}
             </div>
 
-            {/* Benefits */}
             <div className="grid grid-cols-3 gap-2">
               {[
                 { icon: Truck, label: 'Free Shipping', sub: 'Orders $100+' },
@@ -158,7 +196,6 @@ export default function ProductDetailPage() {
               ))}
             </div>
 
-            {/* Specs */}
             {Object.keys(product.specs).length > 0 && (
               <Card className="border-slate-200/70 shadow-sm">
                 <CardHeader className="pb-2 pt-4 px-4"><CardTitle className="text-sm">Specifications</CardTitle></CardHeader>
@@ -177,7 +214,6 @@ export default function ProductDetailPage() {
           </div>
         </div>
 
-        {/* Related Products */}
         {related.length > 0 && (
           <div className="mt-16">
             <h2 className="text-lg font-bold text-slate-900 mb-5">Related Products</h2>

@@ -11,7 +11,8 @@ import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { toast } from 'sonner';
 import { ArrowLeft, Lock, Check } from 'lucide-react';
 
-interface CartItem { id: string; product_id: string; quantity: number; products: { id: string; name: string; price: number; image_url: string; }; }
+interface ProductInfo { id: string; name: string; price: number; image_url: string; }
+interface CartItem { id: string; product_id: string; quantity: number; products: ProductInfo; }
 
 export default function CheckoutPage() {
   const { session, loading: authLoading } = useAuth();
@@ -30,43 +31,155 @@ export default function CheckoutPage() {
 
   useEffect(() => {
     if (!authLoading && !session) { router.push('/login'); return; }
-    if (session) { setEmail(session.user.email || ''); fetchCart(); }
+    if (session) {
+      setEmail(session.user.email || '');
+      // Try to load profile data for pre-fill
+      loadProfile();
+      fetchCart();
+    }
   }, [session, authLoading]);
 
+  async function loadProfile() {
+    try {
+      const { data } = await supabase
+        .from('profiles')
+        .select('full_name, phone')
+        .eq('id', session!.user.id)
+        .maybeSingle();
+
+      if (data) {
+        setFullName(data.full_name || '');
+        setPhone(data.phone || '');
+      }
+    } catch (err) {
+      // Profile might not exist yet, that's fine
+    }
+  }
+
   async function fetchCart() {
-    const { data } = await supabase.from('cart_items').select('*, products(id, name, price, image_url)').eq('user_id', session!.user.id);
-    if (data) setItems(data as CartItem[]);
+    try {
+      const { data, error } = await supabase
+        .from('cart_items')
+        .select('id, product_id, quantity, products(id, name, price, image_url)')
+        .eq('user_id', session!.user.id);
+
+      if (error) {
+        toast.error('Failed to load cart');
+        setLoading(false);
+        return;
+      }
+      if (data) setItems(data.map((d: any) => ({ ...d, products: Array.isArray(d.products) ? d.products[0] : d.products })) as CartItem[]);
+      if (!data || data.length === 0) {
+        router.push('/cart');
+        return;
+      }
+    } catch (err) {
+      toast.error('Something went wrong');
+    }
     setLoading(false);
   }
 
   async function handleCheckout(e: React.FormEvent) {
     e.preventDefault();
-    if (!fullName || !address || !city || !state || !zipCode) { toast.error('Please fill in all address fields'); return; }
+
+    if (!fullName.trim()) { toast.error('Please enter your full name'); return; }
+    if (!address.trim()) { toast.error('Please enter your address'); return; }
+    if (!city.trim()) { toast.error('Please enter your city'); return; }
+    if (!state.trim()) { toast.error('Please enter your state'); return; }
+    if (!zipCode.trim()) { toast.error('Please enter your zip code'); return; }
+
     setProcessing(true);
+
     try {
-      const subtotal = items.reduce((sum, item) => sum + item.products.price * item.quantity, 0);
+      const subtotal = items.reduce((sum, item) => sum + (item.products?.price || 0) * item.quantity, 0);
       const tax = subtotal * 0.08;
       const shipping = subtotal >= 100 ? 0 : 10;
       const total = subtotal + tax + shipping;
-      const shippingAddress = { fullName, email, phone, address, city, state, zipCode };
-      const { data: orderData, error: orderError } = await supabase.from('orders').insert({ user_id: session!.user.id, total_amount: total, shipping_address: shippingAddress, status: 'confirmed' }).select().single();
-      if (orderError || !orderData) { toast.error('Failed to create order'); return; }
-      const orderItems = items.map((item) => ({ order_id: orderData.id, product_id: item.product_id, quantity: item.quantity, price_at_purchase: item.products.price }));
-      const { error: itemsError } = await supabase.from('order_items').insert(orderItems);
-      if (itemsError) { toast.error('Failed to add items to order'); return; }
-      await supabase.from('cart_items').delete().eq('user_id', session!.user.id);
+
+      const shippingAddress = {
+        fullName: fullName.trim(),
+        email: email.trim(),
+        phone: phone.trim(),
+        address: address.trim(),
+        city: city.trim(),
+        state: state.trim(),
+        zipCode: zipCode.trim(),
+      };
+
+      // Step 1: Create the order
+      const { data: orderData, error: orderError } = await supabase
+        .from('orders')
+        .insert({
+          user_id: session!.user.id,
+          total_amount: total,
+          shipping_address: shippingAddress,
+          status: 'confirmed',
+        })
+        .select()
+        .single();
+
+      if (orderError || !orderData) {
+        toast.error('Failed to create order. Please try again.');
+        setProcessing(false);
+        return;
+      }
+
+      // Step 2: Add order items
+      const orderItems = items.map((item) => ({
+        order_id: orderData.id,
+        product_id: item.product_id,
+        quantity: item.quantity,
+        price_at_purchase: item.products?.price || 0,
+      }));
+
+      const { error: itemsError } = await supabase
+        .from('order_items')
+        .insert(orderItems);
+
+      if (itemsError) {
+        toast.error('Failed to add items to order. Please contact support.');
+        setProcessing(false);
+        return;
+      }
+
+      // Step 3: Clear the cart
+      const { error: clearError } = await supabase
+        .from('cart_items')
+        .delete()
+        .eq('user_id', session!.user.id);
+
+      if (clearError) {
+        // Order was created, just cart clearing failed - not critical
+        console.error('Failed to clear cart:', clearError);
+      }
+
+      // Step 4: Update profile with shipping info for next time
+      try {
+        await supabase
+          .from('profiles')
+          .upsert({
+            id: session!.user.id,
+            full_name: fullName.trim(),
+            phone: phone.trim(),
+            updated_at: new Date().toISOString(),
+          });
+      } catch (err) {
+        // Profile update is not critical
+      }
+
       toast.success('Order placed successfully!');
       router.push(`/orders/${orderData.id}`);
-    } catch (err) { toast.error('An error occurred during checkout'); }
-    finally { setProcessing(false); }
+
+    } catch (err) {
+      toast.error('An unexpected error occurred. Please try again.');
+    } finally {
+      setProcessing(false);
+    }
   }
 
   if (authLoading || loading) return <div className="min-h-screen bg-slate-50/40" />;
-  if (items.length === 0) return (
-    <div className="min-h-screen bg-slate-50/40 py-20"><div className="max-w-2xl mx-auto px-4 sm:px-6 lg:px-8 text-center"><h1 className="text-xl font-bold mb-3">Your cart is empty</h1><Link href="/products"><Button className="bg-blue-600 hover:bg-blue-500">Continue Shopping</Button></Link></div></div>
-  );
 
-  const subtotal = items.reduce((sum, item) => sum + item.products.price * item.quantity, 0);
+  const subtotal = items.reduce((sum, item) => sum + (item.products?.price || 0) * item.quantity, 0);
   const tax = subtotal * 0.08;
   const shipping = subtotal >= 100 ? 0 : 10;
   const total = subtotal + tax + shipping;
@@ -102,7 +215,7 @@ export default function CheckoutPage() {
                     <div><label className="block text-[11px] font-medium text-slate-700 mb-1">Full Name *</label><Input value={fullName} onChange={(e) => setFullName(e.target.value)} required disabled={processing} className="h-9 text-[13px]" /></div>
                     <div><label className="block text-[11px] font-medium text-slate-700 mb-1">Email *</label><Input type="email" value={email} onChange={(e) => setEmail(e.target.value)} required disabled={processing} className="h-9 text-[13px]" /></div>
                   </div>
-                  <div><label className="block text-[11px] font-medium text-slate-700 mb-1">Phone</label><Input value={phone} onChange={(e) => setPhone(e.target.value)} disabled={processing} className="h-9 text-[13px]" /></div>
+                  <div><label className="block text-[11px] font-medium text-slate-700 mb-1">Phone</label><Input value={phone} onChange={(e) => setPhone(e.target.value)} disabled={processing} className="h-9 text-[13px]" placeholder="Optional" /></div>
                   <div><label className="block text-[11px] font-medium text-slate-700 mb-1">Street Address *</label><Input value={address} onChange={(e) => setAddress(e.target.value)} required disabled={processing} className="h-9 text-[13px]" /></div>
                   <div className="grid grid-cols-3 gap-3.5">
                     <div><label className="block text-[11px] font-medium text-slate-700 mb-1">City *</label><Input value={city} onChange={(e) => setCity(e.target.value)} required disabled={processing} className="h-9 text-[13px]" /></div>
@@ -116,8 +229,8 @@ export default function CheckoutPage() {
                 <CardContent className="px-4 pb-4 space-y-0">
                   {items.map((item) => (
                     <div key={item.id} className="flex justify-between py-2 border-b border-slate-100 last:border-0 text-[13px]">
-                      <div><span className="font-medium text-slate-900">{item.products.name}</span><span className="text-slate-500 ml-1.5">x{item.quantity}</span></div>
-                      <span className="font-medium">${(item.products.price * item.quantity).toFixed(2)}</span>
+                      <div><span className="font-medium text-slate-900">{item.products?.name || 'Product'}</span><span className="text-slate-500 ml-1.5">x{item.quantity}</span></div>
+                      <span className="font-medium">${((item.products?.price || 0) * item.quantity).toFixed(2)}</span>
                     </div>
                   ))}
                 </CardContent>

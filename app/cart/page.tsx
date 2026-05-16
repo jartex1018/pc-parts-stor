@@ -11,7 +11,8 @@ import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Trash2, ShoppingCart, ArrowLeft, Minus, Plus, Truck } from 'lucide-react';
 import { toast } from 'sonner';
 
-interface CartItem { id: string; product_id: string; quantity: number; products: { id: string; name: string; price: number; image_url: string; stock: number; }; }
+interface ProductInfo { id: string; name: string; price: number; image_url: string; stock: number; }
+interface CartItem { id: string; product_id: string; quantity: number; products: ProductInfo; }
 
 export default function CartPage() {
   const { session, loading: authLoading } = useAuth();
@@ -27,25 +28,59 @@ export default function CartPage() {
   }, [session, authLoading]);
 
   async function fetchCart() {
-    const { data } = await supabase.from('cart_items').select('*, products(id, name, price, image_url, stock)').eq('user_id', session!.user.id);
-    if (data) setItems(data as CartItem[]);
+    try {
+      const { data, error } = await supabase
+        .from('cart_items')
+        .select('id, product_id, quantity, products(id, name, price, image_url, stock)')
+        .eq('user_id', session!.user.id);
+
+      if (error) {
+        toast.error('Failed to load cart');
+        setLoading(false);
+        return;
+      }
+      if (data) setItems(data.map((d: any) => ({ ...d, products: Array.isArray(d.products) ? d.products[0] : d.products })) as CartItem[]);
+    } catch (err) {
+      toast.error('Something went wrong');
+    }
     setLoading(false);
   }
 
   async function updateQuantity(cartItemId: string, newQuantity: number) {
     if (newQuantity <= 0) { removeItem(cartItemId); return; }
     setUpdating(cartItemId);
-    const { error } = await supabase.from('cart_items').update({ quantity: newQuantity }).eq('id', cartItemId);
-    if (!error) setItems((prev) => prev.map((item) => item.id === cartItemId ? { ...item, quantity: newQuantity } : item));
+    try {
+      const { error } = await supabase
+        .from('cart_items')
+        .update({ quantity: newQuantity })
+        .eq('id', cartItemId);
+
+      if (error) {
+        toast.error('Failed to update quantity');
+      } else {
+        setItems((prev) => prev.map((item) => item.id === cartItemId ? { ...item, quantity: newQuantity } : item));
+      }
+    } catch (err) {
+      toast.error('Something went wrong');
+    }
     setUpdating(null);
   }
 
   async function removeItem(cartItemId: string) {
-    const { error } = await supabase.from('cart_items').delete().eq('id', cartItemId);
-    if (!error) { setItems((prev) => prev.filter((item) => item.id !== cartItemId)); toast.success('Item removed'); }
+    try {
+      const { error } = await supabase.from('cart_items').delete().eq('id', cartItemId);
+      if (error) {
+        toast.error('Failed to remove item');
+      } else {
+        setItems((prev) => prev.filter((item) => item.id !== cartItemId));
+        toast.success('Item removed from cart');
+      }
+    } catch (err) {
+      toast.error('Something went wrong');
+    }
   }
 
-  const subtotal = items.reduce((sum, item) => sum + item.products.price * item.quantity, 0);
+  const subtotal = items.reduce((sum, item) => sum + (item.products?.price || 0) * item.quantity, 0);
   const tax = subtotal * 0.08;
   const shipping = subtotal >= 100 ? 0 : 10;
   const total = subtotal + tax + shipping;
@@ -79,23 +114,27 @@ export default function CartPage() {
           <div className="lg:col-span-2">
             <div className="bg-white rounded-xl shadow-sm border border-slate-200/70 overflow-hidden">
               {items.map((item) => (
-                <div key={item.id} className="flex gap-3.5 sm:gap-4 p-4 sm:p-4 border-b border-slate-100 last:border-0 animate-fade-in">
-                  <Link href={`/products/${item.products.id}`} className="relative w-16 h-16 sm:w-20 sm:h-20 flex-shrink-0 bg-slate-50 rounded-xl overflow-hidden border border-slate-100">
-                    <Image src={item.products.image_url} alt={item.products.name} fill className="object-cover" sizes="80px" />
-                  </Link>
+                <div key={item.id} className="flex gap-3.5 sm:gap-4 p-4 border-b border-slate-100 last:border-0 animate-fade-in">
+                  {item.products && (
+                    <Link href={`/products/${item.products.id}`} className="relative w-16 h-16 sm:w-20 sm:h-20 flex-shrink-0 bg-slate-50 rounded-xl overflow-hidden border border-slate-100">
+                      <Image src={item.products.image_url} alt={item.products.name} fill className="object-cover" sizes="80px" />
+                    </Link>
+                  )}
                   <div className="flex-1 min-w-0">
                     <div className="flex justify-between gap-2">
                       <div>
-                        <Link href={`/products/${item.products.id}`}><h3 className="font-semibold text-slate-900 hover:text-blue-600 transition-colors text-[13px] leading-snug line-clamp-2">{item.products.name}</h3></Link>
-                        <p className="text-[11px] text-slate-500 mt-0.5">${item.products.price.toFixed(2)} each</p>
+                        <Link href={`/products/${item.products?.id || '#'}`}>
+                          <h3 className="font-semibold text-slate-900 hover:text-blue-600 transition-colors text-[13px] leading-snug line-clamp-2">{item.products?.name || 'Product'}</h3>
+                        </Link>
+                        <p className="text-[11px] text-slate-500 mt-0.5">${(item.products?.price || 0).toFixed(2)} each</p>
                       </div>
-                      <p className="text-sm font-bold text-slate-900 flex-shrink-0">${(item.products.price * item.quantity).toFixed(2)}</p>
+                      <p className="text-sm font-bold text-slate-900 flex-shrink-0">${((item.products?.price || 0) * item.quantity).toFixed(2)}</p>
                     </div>
                     <div className="flex items-center justify-between mt-2.5">
                       <div className="flex items-center border border-slate-200 rounded-lg bg-white">
                         <button onClick={() => updateQuantity(item.id, item.quantity - 1)} className="p-1.5 hover:bg-slate-50 transition-colors rounded-l-lg" disabled={updating === item.id}><Minus className="w-3 h-3" /></button>
                         <span className="px-2.5 text-[13px] font-medium min-w-[1.75rem] text-center">{item.quantity}</span>
-                        <button onClick={() => updateQuantity(item.id, Math.min(item.products.stock, item.quantity + 1))} className="p-1.5 hover:bg-slate-50 transition-colors rounded-r-lg" disabled={updating === item.id}><Plus className="w-3 h-3" /></button>
+                        <button onClick={() => updateQuantity(item.id, Math.min(item.products?.stock || 99, item.quantity + 1))} className="p-1.5 hover:bg-slate-50 transition-colors rounded-r-lg" disabled={updating === item.id}><Plus className="w-3 h-3" /></button>
                       </div>
                       <button onClick={() => removeItem(item.id)} className="text-slate-400 hover:text-red-600 transition-colors p-1 hover:bg-red-50 rounded-lg"><Trash2 className="w-3.5 h-3.5" /></button>
                     </div>

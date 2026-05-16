@@ -8,6 +8,7 @@ import { useAuth } from '@/lib/auth-context';
 import { Card, CardContent } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
 import { Package, ChevronRight } from 'lucide-react';
+import { toast } from 'sonner';
 
 interface Order { id: string; status: string; total_amount: number; created_at: string; }
 
@@ -24,8 +25,21 @@ export default function OrdersPage() {
   }, [session, authLoading]);
 
   async function fetchOrders() {
-    const { data } = await supabase.from('orders').select('*').eq('user_id', session!.user.id).order('created_at', { ascending: false });
-    if (data) setOrders(data);
+    try {
+      const { data, error } = await supabase
+        .from('orders')
+        .select('*')
+        .eq('user_id', session!.user.id)
+        .order('created_at', { ascending: false });
+
+      if (error) {
+        toast.error('Failed to load orders');
+      } else {
+        setOrders(data || []);
+      }
+    } catch (err) {
+      toast.error('Something went wrong');
+    }
     setLoading(false);
   }
 
